@@ -164,6 +164,9 @@
             padding: 12px 0; appearance: none; cursor: pointer;
         }
         #buildSelect:disabled { opacity: .4; cursor: not-allowed; }
+        /* 펼친 목록: 기본 흰 배경 대신 어두운 배경 + 밝은 글자 (추천은 금색 유지) */
+        #buildSelect { color-scheme: dark; }
+        #buildSelect option { background: #1b1830; color: #e8e3d8; font-weight: 500; }
         .select-arrow { color: var(--text-sub); font-size: 0.85rem; pointer-events: none; }
 
         /* ── 빌드 카드 ── */
@@ -410,6 +413,13 @@
         .token-body a { color: var(--cyan); }
         #tokenMsg { color: var(--gold); font-weight: 700; }
         #tokenState { font-size: 0.8rem; font-weight: 700; margin-bottom: 10px; }
+        .link-section { display: none; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+        .link-section.show { display: block; }
+        .qr-box { display: none; margin: 12px auto 4px; width: 212px; padding: 10px; background: #fff; border-radius: 10px; }
+        .qr-box.show { display: block; }
+        .qr-box img, .qr-box canvas { display: block; width: 192px !important; height: 192px !important; }
+        .qr-copy { display: block; width: 100%; margin-top: 8px; font-size: .72rem; color: #1a1206 !important; }
+        .token-body .warn { color: var(--red); font-size: .72rem; margin: 8px 0 0; }
         .token-body input {
             width: 100%; padding: 10px 11px; background: rgba(255,255,255,.06); border: 1px solid var(--border);
             border-radius: 8px; font-size: 0.85rem; color: var(--text); outline: none;
@@ -579,13 +589,21 @@
         <div class="modal-body token-body">
             <p id="tokenMsg"></p>
             <div id="tokenState"></div>
-            <p>보기는 누구나 가능합니다. 빌드·이미지 수정은 GitHub 토큰을 연결한 기기에서만 되고, 저장할 때마다 변경 기록(📜)에 남습니다. 토큰은 이 기기 브라우저에만 보관됩니다.</p>
+            <div id="linkSection" class="link-section">
+                <p><b>📱 다른 기기 연결</b> — 휴대폰 카메라로 아래 QR을 찍으면 그 기기도 바로 연결됩니다. 토큰을 다시 만들 필요가 없습니다.</p>
+                <button class="btn-file" id="btnShowQr" type="button">QR / 연결 링크 보기</button>
+                <div id="qrBox" class="qr-box"></div>
+                <p class="warn">⚠️ 이 QR·링크는 수정 권한 그 자체입니다. 본인 기기에만 사용하고 남에게 보내지 마세요.</p>
+            </div>
+            <div id="tokenGuide">
+            <p>이 사이트는 브라우저 보안상 GitHub 로그인 여부를 알 수 없어서, <b>처음 한 번만</b> 토큰을 연결해야 합니다. 연결한 기기는 계속 유지되고, 다른 기기는 이 기기에서 QR로 바로 연결할 수 있습니다.</p>
             <ol>
-                <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub 토큰 만들기</a> (Fine-grained)</li>
+                <li><a href="https://github.com/settings/personal-access-tokens/new?name=dunsle-builds&amp;target_name=crim2n&amp;expires_in=none&amp;contents=write" target="_blank" rel="noopener">GitHub 토큰 만들기</a> (로그인된 상태면 바로 열림)</li>
                 <li>Repository access → <b>Only select repositories</b> → <b>dunsle-builds</b></li>
                 <li>Permissions → Contents → <b>Read and write</b> → 생성 후 복사</li>
             </ol>
             <input type="password" id="tokenInput" placeholder="github_pat_... 붙여넣기" autocomplete="off">
+            </div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-cancel" id="btnTokenRemove">연결 해제</button>
@@ -1087,25 +1105,71 @@ heroImgFile.addEventListener('change', async function() {
    ========================================= */
 const tokenOverlay = document.getElementById('tokenOverlay');
 function openTokenModal(msg) {
+    const on = !!getToken();
     document.getElementById('tokenMsg').textContent = msg || '';
     document.getElementById('tokenInput').value = '';
-    document.getElementById('tokenState').textContent = getToken() ? '✅ 이 기기는 연결되어 있습니다.' : '🔒 연결 안 됨 (보기만 가능)';
-    document.getElementById('btnTokenRemove').style.display = getToken() ? '' : 'none';
+    document.getElementById('tokenState').textContent = on ? '✅ 이 기기는 연결되어 있습니다.' : '🔒 연결 안 됨 (보기만 가능)';
+    document.getElementById('btnTokenRemove').style.display = on ? '' : 'none';
+    document.getElementById('btnTokenSave').style.display = on ? 'none' : '';
+    document.getElementById('linkSection').classList.toggle('show', on);
+    document.getElementById('tokenGuide').style.display = on ? 'none' : '';
+    const qr = document.getElementById('qrBox'); qr.classList.remove('show'); qr.innerHTML = '';
     tokenOverlay.classList.add('open');
+}
+/* 토큰 확인 후 이 기기에 저장 */
+async function connectToken(t) {
+    const r = await fetch(API, { headers: { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + t } });
+    if (!r.ok) throw new Error('토큰을 확인할 수 없습니다. 값을 다시 확인하세요.');
+    const repo = await r.json();
+    if (!repo.permissions || !repo.permissions.push) throw new Error('이 토큰에는 저장소 쓰기 권한이 없습니다.');
+    lsSet('ghToken', t);
+    updateTokenBtn();
+}
+/* 다른 기기 연결: QR/링크 (#connect=토큰). 주소 # 뒤는 서버로 전송되지 않음 */
+function connectLink() { return location.origin + location.pathname + '#connect=' + encodeURIComponent(getToken()); }
+function loadQrLib() {
+    return new Promise((resolve, reject) => {
+        if (window.QRCode) return resolve();
+        const sc = document.createElement('script');
+        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        sc.onload = resolve; sc.onerror = () => reject(new Error('QR 생성기를 불러오지 못했습니다.'));
+        document.head.appendChild(sc);
+    });
+}
+document.getElementById('btnShowQr').addEventListener('click', async () => {
+    const box = document.getElementById('qrBox');
+    box.innerHTML = '';
+    try {
+        await loadQrLib();
+        const holder = document.createElement('div');
+        box.appendChild(holder);
+        new QRCode(holder, { text: connectLink(), width: 192, height: 192, correctLevel: QRCode.CorrectLevel.L });
+        const copy = document.createElement('button');
+        copy.type = 'button'; copy.className = 'btn-file qr-copy'; copy.textContent = '연결 링크 복사 (PC ↔ PC)';
+        copy.addEventListener('click', async () => {
+            try { await navigator.clipboard.writeText(connectLink()); copy.textContent = '복사됨 ✓'; }
+            catch (e) { prompt('아래 링크를 복사하세요', connectLink()); }
+        });
+        box.appendChild(copy);
+        box.classList.add('show');
+    } catch (e) { alert(e.message); }
+});
+async function handleConnectHash() {
+    const m = location.hash.match(/^#connect=(.+)$/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname);   // 주소창·방문기록에서 토큰 제거
+    try {
+        await connectToken(decodeURIComponent(m[1]));
+        alert('이 기기가 연결되었습니다. 이제 여기서도 수정할 수 있습니다.');
+    } catch (e) { alert('연결 실패: ' + e.message); }
 }
 function closeTokenModal() { tokenOverlay.classList.remove('open'); }
 document.getElementById('btnToken').addEventListener('click', () => openTokenModal(''));
 document.getElementById('btnTokenSave').addEventListener('click', async () => {
     const t = document.getElementById('tokenInput').value.trim();
     if (!t) return;
-    const r = await fetch(API, { headers: { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + t } });
-    if (!r.ok) { alert('토큰을 확인할 수 없습니다. 값을 다시 확인하세요.'); return; }
-    const repo = await r.json();
-    if (!repo.permissions || !repo.permissions.push) { alert('이 토큰에는 저장소 쓰기 권한이 없습니다.'); return; }
-    lsSet('ghToken', t);
-    updateTokenBtn();
-    closeTokenModal();
-    alert('연결되었습니다. 이제 이 기기에서 수정·추가가 GitHub에 바로 저장됩니다.');
+    try { await connectToken(t); } catch (e) { alert(e.message); return; }
+    openTokenModal('연결되었습니다. 다른 기기는 아래 QR로 바로 연결하세요.');
 });
 document.getElementById('btnTokenRemove').addEventListener('click', () => {
     lsSet('ghToken', null);
@@ -1347,6 +1411,7 @@ modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) clo
 /* 시작 */
 buildSwatches();
 updateTokenBtn();
+handleConnectHash();
 loadData();
 </script>
 </body>
