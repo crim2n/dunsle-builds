@@ -419,7 +419,7 @@
         .qr-box.show { display: block; }
         .qr-box img, .qr-box canvas { display: block; width: 192px !important; height: 192px !important; }
         .qr-copy { display: block; width: 100%; margin-top: 8px; font-size: .72rem; color: #1a1206 !important; }
-        .token-body .warn { color: var(--red); font-size: .72rem; margin: 8px 0 0; }
+        .token-body .hint { font-size: .72rem; margin: 8px 0 0; }
         .token-body input {
             width: 100%; padding: 10px 11px; background: rgba(255,255,255,.06); border: 1px solid var(--border);
             border-radius: 8px; font-size: 0.85rem; color: var(--text); outline: none;
@@ -438,7 +438,7 @@
         <h1>⚔️ 던슬 빌드 정리표</h1>
         <div class="header-tools">
             <a class="tool-btn" id="btnHistory" href="#" target="_blank" rel="noopener" title="변경 기록 (누가·언제·무엇을)">📜</a>
-            <button class="tool-btn" id="btnToken" title="이 기기 수정 권한 연결">🔑</button>
+            <button class="tool-btn" id="btnToken" title="수정 잠금 해제 (비밀번호)">🔑</button>
             <button class="btn-add" id="btnAddBuild">＋ 빌드</button>
         </div>
     </div>
@@ -578,36 +578,25 @@
 </div>
 <div class="palette-pop" id="palettePop"></div>
 
-<!-- GitHub 토큰 연결 -->
+<!-- 수정 잠금 해제 (비밀번호) -->
 <div class="modal-overlay" id="tokenOverlay">
     <div class="modal-content">
         <div class="modal-handle"></div>
         <div class="modal-header">
-            <span>🔑 수정 권한 연결</span>
+            <span>🔑 수정 잠금 해제</span>
             <span class="modal-close" onclick="closeTokenModal()">✕</span>
         </div>
         <div class="modal-body token-body">
             <p id="tokenMsg"></p>
             <div id="tokenState"></div>
-            <div id="linkSection" class="link-section">
-                <p><b>📱 다른 기기 연결</b> — 휴대폰 카메라로 아래 QR을 찍으면 그 기기도 바로 연결됩니다. 토큰을 다시 만들 필요가 없습니다.</p>
-                <button class="btn-file" id="btnShowQr" type="button">QR / 연결 링크 보기</button>
-                <div id="qrBox" class="qr-box"></div>
-                <p class="warn">⚠️ 이 QR·링크는 수정 권한 그 자체입니다. 본인 기기에만 사용하고 남에게 보내지 마세요.</p>
-            </div>
-            <div id="tokenGuide">
-            <p>이 사이트는 브라우저 보안상 GitHub 로그인 여부를 알 수 없어서, <b>처음 한 번만</b> 토큰을 연결해야 합니다. 연결한 기기는 계속 유지되고, 다른 기기는 이 기기에서 QR로 바로 연결할 수 있습니다.</p>
-            <ol>
-                <li><a href="https://github.com/settings/personal-access-tokens/new?name=dunsle-builds&amp;target_name=crim2n&amp;expires_in=none&amp;contents=write" target="_blank" rel="noopener">GitHub 토큰 만들기</a> (로그인된 상태면 바로 열림)</li>
-                <li>Repository access → <b>Only select repositories</b> → <b>dunsle-builds</b></li>
-                <li>Permissions → Contents → <b>Read and write</b> → 생성 후 복사</li>
-            </ol>
-            <input type="password" id="tokenInput" placeholder="github_pat_... 붙여넣기" autocomplete="off">
+            <div id="pwArea">
+                <input type="password" id="pwInput" placeholder="비밀번호" autocomplete="current-password">
+                <p class="hint">한 번 풀면 이 기기에서는 계속 수정할 수 있습니다.</p>
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-cancel" id="btnTokenRemove">연결 해제</button>
-            <button class="btn btn-save" id="btnTokenSave">연결</button>
+            <button class="btn btn-cancel" id="btnTokenRemove">이 기기 잠그기</button>
+            <button class="btn btn-save" id="btnTokenSave">잠금 해제</button>
         </div>
     </div>
 </div>
@@ -658,7 +647,7 @@ async function ghPutFile(path, b64, sha, message) {
     if (sha) body.sha = sha;
     const r = await fetch(`${API}/contents/${encPath(path)}`, { method: 'PUT', headers: ghHeaders(true), body: JSON.stringify(body) });
     if (!r.ok) {
-        const err = new Error(r.status === 401 || r.status === 403 ? '토큰 권한이 없거나 만료되었습니다.' : `GitHub 저장 실패 (${r.status})`);
+        const err = new Error(r.status === 401 || r.status === 403 ? '수정 권한이 만료되었습니다. 비밀번호를 다시 입력하세요.' : `GitHub 저장 실패 (${r.status})`);
         err.status = r.status;
         throw err;
     }
@@ -768,7 +757,7 @@ async function loadData() {
 /* 저장: 최신본을 다시 받아 그 위에 이번 변경만 적용 → 다른 기기에서 동시에 고쳐도 덮어쓰지 않음 */
 let saving = false;
 async function commitChange(message, mutate) {
-    if (!getToken()) { openTokenModal('수정하려면 먼저 이 기기에 GitHub 토큰을 연결하세요.'); return false; }
+    if (!getToken()) { openTokenModal('수정하려면 비밀번호를 입력하세요.'); return false; }
     if (saving) return false;
     saving = true;
     setStatus('저장 중…');
@@ -793,7 +782,10 @@ async function commitChange(message, mutate) {
         throw new Error('다른 저장과 겹쳐 실패했습니다. 다시 시도하세요.');
     } catch (e) {
         setStatus('저장 실패', true);
-        alert(e.message);
+        if (e.status === 401 || e.status === 403) {
+            lsSet('ghToken', null); updateTokenBtn();
+            openTokenModal(e.message);
+        } else alert(e.message);
         return false;
     } finally {
         saving = false;
@@ -869,7 +861,7 @@ function normalizeClassImage(file) {
 
 /* 이미지 파일을 저장소 images/ 에 올리고 builds.json 의 이미지 경로를 갱신 */
 async function uploadClassImage(cls, dataUrl) {
-    if (!getToken()) { openTokenModal('이미지를 올리려면 먼저 GitHub 토큰을 연결하세요.'); return false; }
+    if (!getToken()) { openTokenModal('이미지를 올리려면 비밀번호를 입력하세요.'); return false; }
     setStatus('이미지 올리는 중…');
     const path = `images/${cls}.png`;
     try {
@@ -1088,7 +1080,7 @@ recBtn.addEventListener('click', async function() {
 const heroImgFile = document.getElementById('heroImgFile');
 document.getElementById('heroImgBtn').addEventListener('click', () => {
     if (!currentClass) return;
-    if (!getToken()) { openTokenModal('이미지를 바꾸려면 먼저 GitHub 토큰을 연결하세요.'); return; }
+    if (!getToken()) { openTokenModal('이미지를 바꾸려면 비밀번호를 입력하세요.'); return; }
     heroImgFile.click();
 });
 heroImgFile.addEventListener('change', async function() {
@@ -1101,76 +1093,77 @@ heroImgFile.addEventListener('change', async function() {
 });
 
 /* =========================================
-   4. 토큰 연결
+   4. 수정 잠금 해제 (비밀번호)
+   - 저장소의 data/auth.json 에는 "비밀번호로 암호화된 수정용 열쇠"만 있음 (비밀번호·열쇠 원문 없음)
+   - 비밀번호를 넣으면 브라우저 안에서만 복호화 → 이 기기에 보관
+   - 비밀번호 변경: GitHub 저장소 Settings → Secrets 의 EDIT_PASSWORD 수정 후 Actions "비밀번호 적용" 실행
    ========================================= */
 const tokenOverlay = document.getElementById('tokenOverlay');
+const pwInput = document.getElementById('pwInput');
 function openTokenModal(msg) {
     const on = !!getToken();
     document.getElementById('tokenMsg').textContent = msg || '';
-    document.getElementById('tokenInput').value = '';
-    document.getElementById('tokenState').textContent = on ? '✅ 이 기기는 연결되어 있습니다.' : '🔒 연결 안 됨 (보기만 가능)';
-    document.getElementById('btnTokenRemove').style.display = on ? '' : 'none';
+    pwInput.value = '';
+    document.getElementById('tokenState').textContent = on ? '✅ 이 기기는 수정 가능 상태입니다.' : '🔒 잠김 (보기만 가능)';
+    document.getElementById('pwArea').style.display = on ? 'none' : '';
     document.getElementById('btnTokenSave').style.display = on ? 'none' : '';
-    document.getElementById('linkSection').classList.toggle('show', on);
-    document.getElementById('tokenGuide').style.display = on ? 'none' : '';
-    const qr = document.getElementById('qrBox'); qr.classList.remove('show'); qr.innerHTML = '';
+    document.getElementById('btnTokenRemove').style.display = on ? '' : 'none';
     tokenOverlay.classList.add('open');
-}
-/* 토큰 확인 후 이 기기에 저장 */
-async function connectToken(t) {
-    const r = await fetch(API, { headers: { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + t } });
-    if (!r.ok) throw new Error('토큰을 확인할 수 없습니다. 값을 다시 확인하세요.');
-    const repo = await r.json();
-    if (!repo.permissions || !repo.permissions.push) throw new Error('이 토큰에는 저장소 쓰기 권한이 없습니다.');
-    lsSet('ghToken', t);
-    updateTokenBtn();
-}
-/* 다른 기기 연결: QR/링크 (#connect=토큰). 주소 # 뒤는 서버로 전송되지 않음 */
-function connectLink() { return location.origin + location.pathname + '#connect=' + encodeURIComponent(getToken()); }
-function loadQrLib() {
-    return new Promise((resolve, reject) => {
-        if (window.QRCode) return resolve();
-        const sc = document.createElement('script');
-        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-        sc.onload = resolve; sc.onerror = () => reject(new Error('QR 생성기를 불러오지 못했습니다.'));
-        document.head.appendChild(sc);
-    });
-}
-document.getElementById('btnShowQr').addEventListener('click', async () => {
-    const box = document.getElementById('qrBox');
-    box.innerHTML = '';
-    try {
-        await loadQrLib();
-        const holder = document.createElement('div');
-        box.appendChild(holder);
-        new QRCode(holder, { text: connectLink(), width: 192, height: 192, correctLevel: QRCode.CorrectLevel.L });
-        const copy = document.createElement('button');
-        copy.type = 'button'; copy.className = 'btn-file qr-copy'; copy.textContent = '연결 링크 복사 (PC ↔ PC)';
-        copy.addEventListener('click', async () => {
-            try { await navigator.clipboard.writeText(connectLink()); copy.textContent = '복사됨 ✓'; }
-            catch (e) { prompt('아래 링크를 복사하세요', connectLink()); }
-        });
-        box.appendChild(copy);
-        box.classList.add('show');
-    } catch (e) { alert(e.message); }
-});
-async function handleConnectHash() {
-    const m = location.hash.match(/^#connect=(.+)$/);
-    if (!m) return;
-    history.replaceState(null, '', location.pathname);   // 주소창·방문기록에서 토큰 제거
-    try {
-        await connectToken(decodeURIComponent(m[1]));
-        alert('이 기기가 연결되었습니다. 이제 여기서도 수정할 수 있습니다.');
-    } catch (e) { alert('연결 실패: ' + e.message); }
+    if (!on) setTimeout(() => pwInput.focus(), 50);
 }
 function closeTokenModal() { tokenOverlay.classList.remove('open'); }
+
+function b64Bytes(b64) {
+    const bin = atob(b64);
+    const u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return u;
+}
+async function loadAuth() {
+    try {
+        const f = await ghGetFile('data/auth.json');
+        if (f && f.content) return JSON.parse(b64ToUtf8(f.content));
+    } catch (e) { /* 아래로 */ }
+    const r = await fetch(`data/auth.json?_=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) throw new Error('잠금 정보를 불러오지 못했습니다.');
+    return r.json();
+}
+async function unlockWithPassword(pw) {
+    const a = await loadAuth();
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: b64Bytes(a.salt), iterations: a.iter, hash: 'SHA-256' },
+        base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    let tok;
+    try {
+        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64Bytes(a.iv) }, key, b64Bytes(a.ct));
+        tok = new TextDecoder().decode(pt);
+    } catch (e) { throw new Error('비밀번호가 틀렸습니다.'); }
+    const r = await fetch(API, { headers: { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + tok } });
+    const repo = r.ok ? await r.json() : null;
+    if (!repo || !repo.permissions || !repo.permissions.push) throw new Error('수정용 열쇠가 만료되었습니다. 저장소에서 열쇠를 갱신해야 합니다.');
+    lsSet('ghToken', tok);
+    updateTokenBtn();
+}
+async function doUnlock() {
+    const pw = pwInput.value;
+    if (!pw) return;
+    const btn = document.getElementById('btnTokenSave');
+    btn.disabled = true; btn.textContent = '확인 중…';
+    try {
+        await unlockWithPassword(pw);
+        closeTokenModal();
+        setStatus('수정 가능 ✓'); setTimeout(() => setStatus(''), 2500);
+    } catch (e) {
+        document.getElementById('tokenMsg').textContent = e.message;
+        pwInput.select();
+    } finally {
+        btn.disabled = false; btn.textContent = '잠금 해제';
+    }
+}
 document.getElementById('btnToken').addEventListener('click', () => openTokenModal(''));
-document.getElementById('btnTokenSave').addEventListener('click', async () => {
-    const t = document.getElementById('tokenInput').value.trim();
-    if (!t) return;
-    try { await connectToken(t); } catch (e) { alert(e.message); return; }
-    openTokenModal('연결되었습니다. 다른 기기는 아래 QR로 바로 연결하세요.');
-});
+document.getElementById('btnTokenSave').addEventListener('click', doUnlock);
+pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') doUnlock(); });
 document.getElementById('btnTokenRemove').addEventListener('click', () => {
     lsSet('ghToken', null);
     updateTokenBtn();
@@ -1290,7 +1283,7 @@ document.getElementById('m_img').addEventListener('change', async function() {
 });
 
 function openModal(editMode = false) {
-    if (!getToken()) { openTokenModal('빌드를 추가·수정하려면 먼저 이 기기에 GitHub 토큰을 연결하세요.'); return; }
+    if (!getToken()) { openTokenModal('빌드를 추가·수정하려면 비밀번호를 입력하세요.'); return; }
     isEditing = editMode;
     pendingImg = null;
     document.getElementById('modalTitle').textContent = editMode ? '빌드 수정' : '새 빌드 추가';
@@ -1390,7 +1383,7 @@ document.getElementById('btnEdit').addEventListener('click', () => openModal(tru
 document.getElementById('btnDelete').addEventListener('click', async () => {
     const b = currentId && findBuild(currentId);
     if (!b) return;
-    if (!getToken()) { openTokenModal('삭제하려면 먼저 GitHub 토큰을 연결하세요.'); return; }
+    if (!getToken()) { openTokenModal('삭제하려면 비밀번호를 입력하세요.'); return; }
     if (!confirm(`[${b.클래스}] ${b.캐릭터} 빌드를 삭제하시겠습니까?`)) return;
     const id = b.id, cls = b.클래스;
     const ok = await commitChange(`빌드 삭제: [${cls}] ${b.캐릭터}`, d => {
@@ -1411,7 +1404,6 @@ modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) clo
 /* 시작 */
 buildSwatches();
 updateTokenBtn();
-handleConnectHash();
 loadData();
 </script>
 </body>
