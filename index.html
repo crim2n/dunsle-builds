@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>던슬 빌드 정리표</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+    <style>
+        :root {
+            --bg-dark:    #0a0a14;
+            --card-bg:    rgba(16, 14, 30, 0.88);
+            --card-border:rgba(255,255,255,0.08);
+            --gold:       #d4a843;
+            --gold-dim:   rgba(212,168,67,0.15);
+            --cyan:       #4fc3f7;
+            --cyan-dim:   rgba(79,195,247,0.12);
+            --text:       #e8e3d8;
+            --text-sub:   #8a8898;
+            --red:        #e05c5c;
+            --green:      #56c98a;
+            --border:     rgba(255,255,255,0.1);
+            --pill-bg:    rgba(255,255,255,0.07);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        /* ── 배경 ── */
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        #bgLayer {
+            position: fixed; inset: 0; z-index: 0;
+            background: url('images/bg.png') center/cover no-repeat;
+        }
+        #bgLayer::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(180deg,
+                rgba(8,6,18,0.72) 0%,
+                rgba(8,6,18,0.80) 40%,
+                rgba(8,6,18,0.95) 100%);
+        }
+
+        /* ── 레이아웃 ── */
+        .app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding-bottom: 40px; }
+
+        /* ── 헤더 ── */
+        .header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 16px 10px;
+        }
+        .header h1 {
+            font-size: 1.25rem; font-weight: 800; letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #fff 40%, var(--gold));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .btn-add {
+            display: flex; align-items: center; gap: 5px;
+            background: var(--gold); color: #1a1206;
+            border: none; border-radius: 20px;
+            padding: 8px 14px; font-size: 0.82rem; font-weight: 700;
+            cursor: pointer; transition: opacity .15s;
+        }
+        .btn-add:active { opacity: .75; }
+
+        /* ── 클래스 선택 (가로 스크롤 포트레이트) ── */
+        .class-section { padding: 0 0 8px; }
+        .class-label {
+            padding: 4px 16px 8px;
+            font-size: 0.72rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1px;
+            color: var(--text-sub);
+        }
+        .class-scroll {
+            display: flex; gap: 10px;
+            overflow-x: auto; padding: 4px 16px 10px;
+            scrollbar-width: none;
+        }
+        .class-scroll::-webkit-scrollbar { display: none; }
+        .class-card {
+            flex: 0 0 72px; display: flex; flex-direction: column;
+            align-items: center; gap: 5px; cursor: pointer;
+            transition: transform .15s;
+        }
+        .class-card:active { transform: scale(.94); }
+        .class-portrait {
+            width: 64px; height: 64px; border-radius: 16px;
+            overflow: hidden; border: 2px solid var(--border);
+            background: rgba(255,255,255,0.05);
+            transition: border-color .2s, box-shadow .2s;
+            position: relative;
+        }
+        .class-portrait img {
+            width: 100%; height: 100%; object-fit: contain; object-position: center;
+        }
+        .class-portrait .no-img {
+            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem;
+        }
+        .class-card.active .class-portrait {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(212,168,67,.35), 0 4px 16px rgba(212,168,67,.25);
+        }
+        .class-card .class-name {
+            font-size: 0.7rem; font-weight: 600; color: var(--text-sub);
+            transition: color .2s; white-space: nowrap;
+        }
+        .class-card.active .class-name { color: var(--gold); }
+
+        /* ── 캐릭터 히어로 배너 ── */
+        #heroBanner {
+            margin: 0 16px 12px;
+            border-radius: 20px; overflow: hidden;
+            border: 1px solid var(--card-border);
+            height: 180px; position: relative;
+            display: none;
+            background: var(--card-bg);
+        }
+        #heroBanner.show { display: block; animation: fadeIn .3s ease; }
+        #heroImg {
+            position: absolute;
+            right: 0; top: 0;
+            height: 100%; width: 55%;
+            object-fit: contain; object-position: right center;
+        }
+        .hero-overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg,
+                rgba(8,6,18,.97) 0%,
+                rgba(8,6,18,.90) 35%,
+                rgba(8,6,18,.45) 65%,
+                transparent 100%);
+            display: flex; flex-direction: column; justify-content: flex-end;
+            padding: 16px 20px;
+        }
+        #heroClassName {
+            font-size: 1.9rem; font-weight: 900; letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 30%, var(--gold));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            line-height: 1;
+        }
+        .hero-sub { font-size: 0.75rem; color: var(--text-sub); margin-top: 3px; }
+
+        /* ── 빌드 선택 ── */
+        .build-select-wrap {
+            margin: 0 16px 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 4px 14px;
+            display: flex; align-items: center;
+            backdrop-filter: blur(12px);
+        }
+        .build-select-wrap label {
+            font-size: 0.7rem; font-weight: 700; color: var(--text-sub);
+            text-transform: uppercase; letter-spacing: 1px;
+            white-space: nowrap; margin-right: 10px;
+        }
+        #buildSelect {
+            flex: 1; background: transparent; border: none; outline: none;
+            color: var(--text); font-size: 0.95rem; font-weight: 600;
+            padding: 12px 0; appearance: none; cursor: pointer;
+        }
+        #buildSelect:disabled { opacity: .4; cursor: not-allowed; }
+        .select-arrow { color: var(--text-sub); font-size: 0.85rem; pointer-events: none; }
+
+        /* ── 빌드 카드 ── */
+        #resultContainer {
+            margin: 0 16px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+            display: none;
+        }
+        #resultContainer.show { display: block; animation: fadeIn .25s ease; }
+        #resultContainer.is-recommended { border-color: rgba(212,168,67,.45); }
+
+        .card-header {
+            padding: 14px 16px 12px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .card-title-area { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        #resClass {
+            font-size: 0.7rem; font-weight: 700;
+            background: var(--cyan-dim); color: var(--cyan);
+            border: 1px solid rgba(79,195,247,.25);
+            padding: 3px 8px; border-radius: 10px;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        #resClass.recommend-class {
+            background: var(--gold-dim); color: var(--gold);
+            border-color: rgba(212,168,67,.35);
+        }
+        #resName {
+            font-size: 1.05rem; font-weight: 800;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .action-btns { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+        .icon-btn { font-size: 1.1rem; cursor: pointer; opacity: .4; transition: opacity .15s, transform .15s; }
+        .icon-btn.active { opacity: 1; }
+        .icon-btn:active { transform: scale(1.2); }
+        .text-btn {
+            font-size: 0.75rem; color: var(--text-sub);
+            background: var(--pill-bg); border: 1px solid var(--border);
+            padding: 5px 9px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; gap: 3px;
+            transition: background .15s;
+        }
+        .text-btn:active { background: rgba(255,255,255,.12); }
+        .text-btn.delete { color: var(--red); border-color: rgba(224,92,92,.25); background: rgba(224,92,92,.08); }
+
+        .card-body { padding: 14px 16px 16px; }
+
+        /* ── 섹션 타이틀 ── */
+        .section-title {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 0.72rem; font-weight: 700;
+            color: var(--gold); text-transform: uppercase; letter-spacing: 0.8px;
+            margin: 14px 0 8px;
+        }
+        .section-title::after {
+            content: ''; flex: 1; height: 1px;
+            background: linear-gradient(90deg, rgba(212,168,67,.3), transparent);
+        }
+
+        /* ── 그리드 ── */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+        .item-box {
+            background: var(--pill-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px; padding: 10px;
+            text-align: center;
+        }
+        .item-label {
+            display: block; font-size: 0.65rem; font-weight: 600;
+            color: var(--text-sub); text-transform: uppercase; letter-spacing: .5px;
+            margin-bottom: 4px;
+        }
+        .item-box strong { font-size: 0.88rem; word-break: keep-all; }
+        .item-box.skill-box { border-left: 2px solid var(--cyan); }
+        .item-box.buff-box { border-left: 2px solid var(--gold); }
+
+        /* ── 유물 태그 ── */
+        .pill-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .pill {
+            background: var(--pill-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px; padding: 5px 11px;
+            font-size: 0.8rem;
+        }
+
+        /* ── 빈 상태 ── */
+        #emptyState {
+            text-align: center; padding: 50px 20px;
+            color: var(--text-sub); font-size: 0.9rem; line-height: 1.7;
+        }
+        #emptyState .empty-icon { font-size: 2.5rem; margin-bottom: 10px; opacity: .5; }
+
+        /* ── 애니메이션 ── */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+        /* ── 모달 ── */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.75); z-index: 1000;
+            align-items: flex-end; justify-content: center;
+            padding: 0;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-content {
+            background: #14122a;
+            width: 100%; max-width: 480px;
+            border-radius: 24px 24px 0 0;
+            max-height: 90vh; display: flex; flex-direction: column;
+            border: 1px solid var(--card-border); border-bottom: none;
+            animation: slideUp .25s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+        .modal-handle { width: 40px; height: 4px; background: rgba(255,255,255,.2); border-radius: 2px; margin: 12px auto 0; }
+        .modal-header {
+            padding: 14px 20px; border-bottom: 1px solid var(--border);
+            font-weight: 700; font-size: 1rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-close { font-size: 1.2rem; cursor: pointer; opacity: .5; padding: 4px; }
+        .modal-close:active { opacity: .8; }
+        .modal-body { padding: 16px 20px; overflow-y: auto; flex-grow: 1; }
+        .modal-footer {
+            padding: 12px 20px 24px; border-top: 1px solid var(--border);
+            display: flex; justify-content: flex-end; gap: 10px;
+        }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+        .form-full { grid-column: span 2; }
+        .form-group label {
+            display: block; font-size: 0.7rem; font-weight: 700;
+            color: var(--text-sub); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px;
+        }
+        .form-group input {
+            width: 100%; padding: 9px 11px;
+            background: rgba(255,255,255,.06); border: 1px solid var(--border);
+            border-radius: 8px; font-size: 0.88rem; color: var(--text);
+            outline: none; transition: border-color .15s;
+        }
+        .form-group input:focus { border-color: var(--cyan); }
+        .form-section-title {
+            font-size: 0.7rem; font-weight: 700; color: var(--gold);
+            text-transform: uppercase; letter-spacing: .8px;
+            margin: 14px 0 8px; display: flex; align-items: center; gap: 6px;
+        }
+        .form-section-title::after { content: ''; flex: 1; height: 1px; background: rgba(212,168,67,.25); }
+
+        .btn { padding: 10px 18px; border-radius: 10px; font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; transition: opacity .15s; }
+        .btn:active { opacity: .75; }
+        .btn-cancel { background: rgba(255,255,255,.08); color: var(--text); border: 1px solid var(--border); }
+        .btn-save { background: var(--gold); color: #1a1206; }
+
+        /* ── 색상 텍스트 (이미지 원본 색 → 다크 배경용 톤) ── */
+        .item-box.skill-box, .item-box.buff-box { border-left-color: var(--c, var(--cyan)); }
+        .item-box.buff-box { border-left-color: var(--c, var(--gold)); }
+        .item-box strong .tone, .pill .tone { font-weight: inherit; }
+        .pill { display: inline-flex; align-items: center; gap: 5px; }
+        .pill .pill-no { font-size: 0.62rem; color: var(--text-sub); font-weight: 700; }
+        .pill.tinted { border-color: color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) 10%, transparent); }
+        #resGunpowder .tone + .tone { margin-left: 4px; }
+
+        /* ── 히어로 이미지 변경 버튼 ── */
+        .hero-img-btn {
+            position: absolute; top: 10px; right: 10px; z-index: 2;
+            font-size: 0.7rem; font-weight: 700; color: var(--text);
+            background: rgba(8,6,18,.65); border: 1px solid var(--border);
+            border-radius: 8px; padding: 5px 8px; cursor: pointer;
+        }
+        .hero-img-btn:active { opacity: .75; }
+
+        /* ── 모달: 클래스 자동완성 / 이미지 업로드 ── */
+        .img-upload {
+            display: none; gap: 12px; align-items: center;
+            background: rgba(255,255,255,.04); border: 1px dashed rgba(212,168,67,.4);
+            border-radius: 12px; padding: 10px; margin-bottom: 12px;
+        }
+        .img-upload.show { display: flex; }
+        .img-preview {
+            flex: 0 0 64px; width: 64px; height: 64px; border-radius: 16px;
+            overflow: hidden; border: 2px solid var(--border);
+            background: rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+        }
+        .img-preview img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
+        .img-upload-info { min-width: 0; flex: 1; }
+        .img-upload-title { font-size: 0.8rem; font-weight: 700; color: var(--gold); }
+        .img-upload-desc { font-size: 0.68rem; color: var(--text-sub); margin: 2px 0 7px; line-height: 1.4; }
+        .btn-file {
+            display: inline-block; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+            background: var(--pill-bg); border: 1px solid var(--border); color: var(--text);
+            padding: 6px 10px; border-radius: 8px;
+        }
+        .btn-file:active { background: rgba(255,255,255,.12); }
+
+        /* ── 모달: 색상 선택 ── */
+        .cin { display: flex; gap: 6px; align-items: center; }
+        .cin input { flex: 1; min-width: 0; }
+        .swatch {
+            flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,.35); cursor: pointer; padding: 0;
+            background: var(--sw, transparent);
+        }
+        .swatch.none { background: repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 3px, transparent 3px 6px); }
+        .palette-pop {
+            position: fixed; z-index: 2000; display: none;
+            background: #1d1a36; border: 1px solid var(--border); border-radius: 12px;
+            padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+            grid-template-columns: repeat(6, 26px); gap: 6px;
+        }
+        .palette-pop.open { display: grid; }
+        .palette-pop button {
+            width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+            border: 2px solid rgba(255,255,255,.25); background: var(--sw);
+        }
+        .palette-pop button.none { background: repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 3px, transparent 3px 6px); }
+        .palette-pop button.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--gold); }
+
+        /* ── 헤더 도구 / 동기화 ── */
+        .header-tools { display: flex; align-items: center; gap: 6px; }
+        .tool-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 34px; height: 34px; border-radius: 50%; font-size: 0.95rem;
+            background: var(--pill-bg); border: 1px solid var(--border); color: var(--text);
+            cursor: pointer; text-decoration: none;
+        }
+        .tool-btn.on { border-color: rgba(86,201,138,.6); box-shadow: 0 0 0 2px rgba(86,201,138,.18); }
+        .sync-status {
+            display: none; margin: -2px 16px 8px; font-size: 0.72rem; font-weight: 600;
+            color: var(--green); background: rgba(86,201,138,.1); border: 1px solid rgba(86,201,138,.25);
+            padding: 3px 9px; border-radius: 10px;
+        }
+        .sync-status.err { color: var(--red); background: rgba(224,92,92,.1); border-color: rgba(224,92,92,.3); }
+        .header h1 { font-size: 1.1rem; }
+        .btn-add { padding: 8px 12px; }
+        .token-body p { font-size: 0.8rem; color: var(--text-sub); line-height: 1.6; margin-bottom: 10px; }
+        .token-body ol { font-size: 0.78rem; color: var(--text-sub); line-height: 1.7; padding-left: 18px; margin-bottom: 12px; }
+        .token-body a { color: var(--cyan); }
+        #tokenMsg { color: var(--gold); font-weight: 700; }
+        #tokenState { font-size: 0.8rem; font-weight: 700; margin-bottom: 10px; }
+        .token-body input {
+            width: 100%; padding: 10px 11px; background: rgba(255,255,255,.06); border: 1px solid var(--border);
+            border-radius: 8px; font-size: 0.85rem; color: var(--text); outline: none;
+        }
+
+    </style>
+</head>
+<body>
+
+
+<div id="bgLayer"></div>
+
+<div class="app">
+    <!-- 헤더 -->
+    <div class="header">
+        <h1>⚔️ 던슬 빌드 정리표</h1>
+        <div class="header-tools">
+            <a class="tool-btn" id="btnHistory" href="#" target="_blank" rel="noopener" title="변경 기록 (누가·언제·무엇을)">📜</a>
+            <button class="tool-btn" id="btnToken" title="이 기기 수정 권한 연결">🔑</button>
+            <button class="btn-add" id="btnAddBuild">＋ 빌드</button>
+        </div>
+    </div>
+    <span class="sync-status" id="syncStatus"></span>
+
+    <!-- 클래스 선택 -->
+    <div class="class-section">
+        <div class="class-label">클래스 선택</div>
+        <div class="class-scroll" id="classScroll"></div>
+    </div>
+
+    <!-- 캐릭터 히어로 배너 -->
+    <div id="heroBanner">
+        <img id="heroImg" src="" alt="">
+        <div class="hero-overlay">
+            <h2 id="heroClassName"></h2>
+            <div class="hero-sub" id="heroBuildCount"></div>
+        </div>
+        <button class="hero-img-btn" id="heroImgBtn" title="클래스 이미지 변경">🖼️ 이미지</button>
+        <input type="file" accept="image/*" id="heroImgFile" hidden>
+    </div>
+
+    <!-- 빌드 선택 -->
+    <div class="build-select-wrap">
+        <label>빌드</label>
+        <select id="buildSelect" disabled>
+            <option value="">클래스를 선택하세요</option>
+        </select>
+        <span class="select-arrow">▾</span>
+    </div>
+
+    <!-- 빌드 결과 -->
+    <div id="resultContainer">
+        <div class="card-header">
+            <div class="card-title-area">
+                <span id="resClass">클래스</span>
+                <span id="resName">빌드명</span>
+            </div>
+            <div class="action-btns">
+                <div class="icon-btn" id="recBtn" title="추천 토글">⭐</div>
+                <button class="text-btn" id="btnEdit">✏️ 수정</button>
+                <button class="text-btn delete" id="btnDelete">🗑️</button>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="section-title">기본 정보</div>
+            <div class="grid-2">
+                <div class="item-box"><span class="item-label">무기</span><strong id="resWeapon"></strong></div>
+                <div class="item-box"><span class="item-label">특성</span><strong id="resTrait"></strong></div>
+                <div class="item-box"><span class="item-label">죄악</span><strong id="resGunpowder"></strong></div>
+                <div class="item-box"><span class="item-label">송진 / 펫</span><strong id="resPet"></strong></div>
+            </div>
+
+            <div class="section-title">버프</div>
+            <div class="grid-2">
+                <div class="item-box buff-box" id="resBuff1"></div>
+                <div class="item-box buff-box" id="resBuff2"></div>
+            </div>
+
+            <div class="section-title">스킬</div>
+            <div class="grid-3" id="resSkills"></div>
+
+            <div class="section-title">유물</div>
+            <div class="pill-list" id="resArtifacts"></div>
+        </div>
+    </div>
+
+    <!-- 빈 상태 -->
+    <div id="emptyState">
+        <div class="empty-icon">🗡️</div>
+        <div>클래스를 선택하고 빌드를 골라보세요</div>
+    </div>
+</div>
+
+<!-- 추가/수정 모달 -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal-content">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <span id="modalTitle">빌드 추가</span>
+            <span class="modal-close" onclick="closeModal()">✕</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-grid">
+                <div class="form-group"><label>클래스 *</label><input type="text" id="m_cls" placeholder="예: 기사" list="classList" autocomplete="off"></div>
+                <div class="form-group"><label>빌드명 *</label><input type="text" id="m_char" placeholder="예: 임펄스 블레이드"></div>
+            </div>
+            <datalist id="classList"></datalist>
+
+            <!-- 이미지가 없는 클래스일 때만 표시 -->
+            <div class="img-upload" id="imgUploadWrap">
+                <div class="img-preview" id="imgPreview">🖼️</div>
+                <div class="img-upload-info">
+                    <div class="img-upload-title" id="imgUploadTitle">새 클래스 이미지</div>
+                    <div class="img-upload-desc">기존 클래스 이미지와 같은 800×800 규격으로 여백을 자동으로 맞춥니다.</div>
+                    <label class="btn-file">이미지 선택<input type="file" accept="image/*" id="m_img" hidden></label>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group"><label>무기</label><input type="text" id="m_wpn" value="-"></div>
+                <div class="form-group"><label>특성</label><input type="text" id="m_trt" value="-"></div>
+                <div class="form-group"><label>죄악 (앞/뒤 색)</label><input type="text" id="m_gun" value="-"></div>
+                <div class="form-group"><label>송진</label><input type="text" id="m_song" value="-"></div>
+                <div class="form-group"><label>펫</label><input type="text" id="m_pet" value="-"></div>
+                <div class="form-group"><label>버프 1</label><input type="text" id="m_b1" value="-"></div>
+                <div class="form-group form-full"><label>버프 2</label><input type="text" id="m_b2" value="-"></div>
+            </div>
+
+            <div class="form-section-title">스킬 (1~6) · 색 = 속성</div>
+            <div class="form-grid">
+                <div class="form-group"><input type="text" id="m_s1" value="-"></div>
+                <div class="form-group"><input type="text" id="m_s2" value="-"></div>
+                <div class="form-group"><input type="text" id="m_s3" value="-"></div>
+                <div class="form-group"><input type="text" id="m_s4" value="-"></div>
+                <div class="form-group"><input type="text" id="m_s5" value="-"></div>
+                <div class="form-group"><input type="text" id="m_s6" value="-"></div>
+            </div>
+
+            <div class="form-section-title">유물 (1~7) · 색 = 등급</div>
+            <div class="form-grid">
+                <div class="form-group"><input type="text" id="m_a1" value="-"></div>
+                <div class="form-group"><input type="text" id="m_a2" value="-"></div>
+                <div class="form-group"><input type="text" id="m_a3" value="-"></div>
+                <div class="form-group"><input type="text" id="m_a4" value="-"></div>
+                <div class="form-group"><input type="text" id="m_a5" value="-"></div>
+                <div class="form-group"><input type="text" id="m_a6" value="-"></div>
+                <div class="form-group form-full"><input type="text" id="m_a7" value="-"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-cancel" onclick="closeModal()">취소</button>
+            <button class="btn btn-save" id="btnSaveModal">저장</button>
+        </div>
+    </div>
+</div>
+<div class="palette-pop" id="palettePop"></div>
+
+<!-- GitHub 토큰 연결 -->
+<div class="modal-overlay" id="tokenOverlay">
+    <div class="modal-content">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <span>🔑 수정 권한 연결</span>
+            <span class="modal-close" onclick="closeTokenModal()">✕</span>
+        </div>
+        <div class="modal-body token-body">
+            <p id="tokenMsg"></p>
+            <div id="tokenState"></div>
+            <p>보기는 누구나 가능합니다. 빌드·이미지 수정은 GitHub 토큰을 연결한 기기에서만 되고, 저장할 때마다 변경 기록(📜)에 남습니다. 토큰은 이 기기 브라우저에만 보관됩니다.</p>
+            <ol>
+                <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub 토큰 만들기</a> (Fine-grained)</li>
+                <li>Repository access → <b>Only select repositories</b> → <b>dunsle-builds</b></li>
+                <li>Permissions → Contents → <b>Read and write</b> → 생성 후 복사</li>
+            </ol>
+            <input type="password" id="tokenInput" placeholder="github_pat_... 붙여넣기" autocomplete="off">
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-cancel" id="btnTokenRemove">연결 해제</button>
+            <button class="btn btn-save" id="btnTokenSave">연결</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* =========================================
+   0. GitHub 저장소 설정
+   - 보기: 누구나 (토큰 불필요)
+   - 수정: 이 기기에 GitHub 토큰을 연결한 경우에만. 저장할 때마다 커밋으로 기록됨
+   ========================================= */
+const GH = { owner: 'crim2n', repo: 'dunsle-builds', branch: 'main', dataPath: 'data/builds.json' };
+const API = `https://api.github.com/repos/${GH.owner}/${GH.repo}`;
+const HISTORY_URL = `https://github.com/${GH.owner}/${GH.repo}/commits/${GH.branch}`;
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+function getToken() { return lsGet('ghToken') || ''; }
+
+function ghHeaders(json) {
+    const h = { 'Accept': 'application/vnd.github+json' };
+    const t = getToken();
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
+}
+function utf8ToB64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+}
+function b64ToUtf8(b64) {
+    const bin = atob(b64.replace(/\n/g, ''));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+}
+function encPath(p) { return p.split('/').map(encodeURIComponent).join('/'); }
+
+async function ghGetFile(path) {
+    const r = await fetch(`${API}/contents/${encPath(path)}?ref=${GH.branch}&_=${Date.now()}`, { headers: ghHeaders(), cache: 'no-store' });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`GitHub 읽기 실패 (${r.status})`);
+    return r.json();
+}
+async function ghPutFile(path, b64, sha, message) {
+    const body = { message, content: b64, branch: GH.branch };
+    if (sha) body.sha = sha;
+    const r = await fetch(`${API}/contents/${encPath(path)}`, { method: 'PUT', headers: ghHeaders(true), body: JSON.stringify(body) });
+    if (!r.ok) {
+        const err = new Error(r.status === 401 || r.status === 403 ? '토큰 권한이 없거나 만료되었습니다.' : `GitHub 저장 실패 (${r.status})`);
+        err.status = r.status;
+        throw err;
+    }
+    return r.json();
+}
+
+/* builds.json 은 빌드 1개 = 1줄로 저장 → GitHub 변경 기록에서 바뀐 빌드만 한 줄로 보임 */
+function serializeData(d) {
+    const lines = ['{', `  "version": ${d.version || 1},`, `  "images": ${JSON.stringify(d.images || {})},`, '  "builds": ['];
+    d.builds.forEach((b, i) => lines.push('    ' + JSON.stringify(b) + (i < d.builds.length - 1 ? ',' : '')));
+    lines.push('  ]', '}', '');
+    return lines.join('\n');
+}
+
+/* =========================================
+   1. 색상 (데이터 = 원본 이미지 색, 화면 = 어두운 배경용 같은 계열 톤)
+   ========================================= */
+const CLASS_ICON = {
+    '기사':'⚔️','무투가':'👊','학살자':'💀','총잡이':'🔫','마도사':'🔮',
+    '방랑용병':'🗡️','사냥꾼':'🏹','낭인':'🌙','늑대인간':'🐺','소환술사':'🌿',
+    '암살자':'🎭','수호자':'🛡️','약탈자':'⚓','주술사':'🔯','용인':'🐉',
+    '소울이터':'💫','흡혈귀':'🩸','비요른':'🐻','도플갱어':'🃏','승부사':'🎲',
+    '이단심판관':'⚖️','광전사':'🪓',
+};
+const PALETTE = [
+    { hex: null,      name: '기본(검정)' },
+    { hex: '#ff0000', name: '빨강' },
+    { hex: '#c99a0e', name: '금색' },
+    { hex: '#7030a0', name: '보라' },
+    { hex: '#9b1ab8', name: '밝은 보라' },
+    { hex: '#4472c4', name: '파랑' },
+    { hex: '#0070c0', name: '진파랑' },
+    { hex: '#00b0f0', name: '하늘' },
+    { hex: '#00b050', name: '초록' },
+    { hex: '#f08f36', name: '주황' },
+    { hex: '#203880', name: '남색' },
+    { hex: '#808080', name: '회색' },
+];
+const DISPLAY_COLOR = {
+    '#ff0000':'#ff5a52', '#c99a0e':'#e2b43a', '#7030a0':'#b77fe8', '#9b1ab8':'#d27cf2',
+    '#4472c4':'#80a8f0', '#0070c0':'#40a8f2', '#00b0f0':'#3fcaff', '#00b050':'#3fd68a',
+    '#f08f36':'#ffa257', '#203880':'#8f9ff5', '#808080':'#a9a6b0',
+};
+function dispColor(hex) {
+    if (!hex || hex === '#000000') return '';
+    return DISPLAY_COLOR[hex.toLowerCase()] || hex;
+}
+function esc(s) {
+    return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function tone(text, hex) {
+    const c = dispColor(hex);
+    return c ? `<span class="tone" style="color:${c}">${esc(text)}</span>` : `<span class="tone">${esc(text)}</span>`;
+}
+/* 한 셀 안의 두 색: "에너지 코어 (혹한)" → 괄호 앞/뒤, 죄악 "분2 질2" → 공백 앞/뒤 */
+function paint(text, c, field) {
+    if (!c) return esc(text);
+    if (Array.isArray(c)) {
+        let i = text.indexOf(' (');
+        if (i < 0 && field === '죄악') i = text.indexOf(' ');
+        if (i > 0 && c.length > 1) return tone(text.slice(0, i), c[0]) + ' ' + tone(text.slice(i + 1), c[1]);
+        c = c[0];
+    }
+    return tone(text, c);
+}
+function mainColor(c) { return Array.isArray(c) ? c[0] : c; }
+
+/* =========================================
+   2. 데이터 불러오기 / 저장
+   ========================================= */
+let appData = [];          // 빌드 목록
+let appImages = {};        // 클래스 → 이미지 경로
+let sessionImg = {};       // 방금 올린 이미지 (Pages 반영 전까지 이 화면에서 바로 보이게)
+const HEADERS = ["클래스","캐릭터","무기","특성","죄악","버프1","버프2","스킬1","스킬2","스킬3","스킬4","스킬5","스킬6","유물1","유물2","유물3","유물4","유물5","유물6","유물7","송진","펫"];
+
+function applyData(d) {
+    appData = d.builds || [];
+    appImages = d.images || {};
+}
+async function fetchLatest() {
+    // 1순위: GitHub API (저장 직후에도 최신)  2순위: 같은 사이트의 data/builds.json
+    try {
+        const f = await ghGetFile(GH.dataPath);
+        if (f && f.content) return { sha: f.sha, data: JSON.parse(b64ToUtf8(f.content)) };
+    } catch (e) { /* 요청 한도 초과 등 → 아래로 */ }
+    const r = await fetch(`${GH.dataPath}?_=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) throw new Error('빌드 데이터를 불러오지 못했습니다.');
+    return { sha: null, data: await r.json() };
+}
+async function loadData() {
+    const cached = lsGet('dsCache');
+    if (cached) { try { applyData(JSON.parse(cached)); } catch (e) {} }
+    if (appData.length) initUI();
+    setStatus('불러오는 중…');
+    try {
+        const { data } = await fetchLatest();
+        applyData(data);
+        lsSet('dsCache', JSON.stringify(data));
+        setStatus('');
+    } catch (e) {
+        setStatus(appData.length ? '오프라인 (마지막 저장본 표시)' : e.message, true);
+    }
+    initUI();
+    if (currentClass && appData.some(b => b.클래스 === currentClass)) { updateHero(currentClass); populateBuilds(currentClass); }
+}
+
+/* 저장: 최신본을 다시 받아 그 위에 이번 변경만 적용 → 다른 기기에서 동시에 고쳐도 덮어쓰지 않음 */
+let saving = false;
+async function commitChange(message, mutate) {
+    if (!getToken()) { openTokenModal('수정하려면 먼저 이 기기에 GitHub 토큰을 연결하세요.'); return false; }
+    if (saving) return false;
+    saving = true;
+    setStatus('저장 중…');
+    try {
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const f = await ghGetFile(GH.dataPath);
+            const data = JSON.parse(b64ToUtf8(f.content));
+            const result = mutate(data);
+            if (result === false) { setStatus(''); return false; }
+            try {
+                await ghPutFile(GH.dataPath, utf8ToB64(serializeData(data)), f.sha, message);
+                applyData(data);
+                lsSet('dsCache', JSON.stringify(data));
+                setStatus('저장됨 ✓');
+                setTimeout(() => setStatus(''), 2500);
+                return true;
+            } catch (e) {
+                if (e.status === 409 || e.status === 422) continue;   // 그 사이 다른 저장이 있었음 → 재시도
+                throw e;
+            }
+        }
+        throw new Error('다른 저장과 겹쳐 실패했습니다. 다시 시도하세요.');
+    } catch (e) {
+        setStatus('저장 실패', true);
+        alert(e.message);
+        return false;
+    } finally {
+        saving = false;
+    }
+}
+function newId() { return Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3); }
+
+/* =========================================
+   2-1. 클래스 이미지
+   ========================================= */
+const IMG_SIZE = 800;    // 기존 클래스 이미지 캔버스 크기
+const IMG_FILL = 0.88;   // 캐릭터가 캔버스에서 차지하는 최대 비율
+
+function getClassImg(cls) {
+    if (sessionImg[cls]) return sessionImg[cls];
+    const p = appImages[cls];
+    return p ? encPath(p.split('?')[0]) + (p.includes('?') ? '?' + p.split('?')[1] : '') : '';
+}
+
+/* 업로드 이미지를 기존 클래스 이미지와 같은 규격으로 정규화:
+   바깥 여백(투명 또는 단색 배경)을 잘라낸 뒤 800×800 흰 캔버스 중앙에 IMG_FILL 비율로 맞춤 */
+function normalizeClassImage(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const scan = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+            const sw = Math.max(1, Math.round(img.naturalWidth * scan));
+            const sh = Math.max(1, Math.round(img.naturalHeight * scan));
+            const sc = document.createElement('canvas');
+            sc.width = sw; sc.height = sh;
+            const sx = sc.getContext('2d');
+            sx.drawImage(img, 0, 0, sw, sh);
+            const px = sx.getImageData(0, 0, sw, sh).data;
+
+            const at = (x, y) => (y * sw + x) * 4;
+            const corners = [at(0,0), at(sw-1,0), at(0,sh-1), at(sw-1,sh-1)];
+            const transparentBg = corners.some(i => px[i+3] < 20);
+            const bg = [0,1,2].map(k => Math.round(corners.reduce((s, i) => s + px[i+k], 0) / 4));
+            const isContent = i => transparentBg
+                ? px[i+3] > 20
+                : px[i+3] > 20 && (Math.abs(px[i]-bg[0]) + Math.abs(px[i+1]-bg[1]) + Math.abs(px[i+2]-bg[2])) > 40;
+
+            const m = Math.min(4, Math.floor(Math.min(sw, sh) / 20));   // 가장자리 테두리선 무시
+            let x0 = sw, y0 = sh, x1 = -1, y1 = -1;
+            for (let y = m; y < sh - m; y++) for (let x = m; x < sw - m; x++) {
+                if (isContent(at(x, y))) {
+                    if (x < x0) x0 = x; if (x > x1) x1 = x;
+                    if (y < y0) y0 = y; if (y > y1) y1 = y;
+                }
+            }
+            if (x1 < 0) { x0 = 0; y0 = 0; x1 = sw - 1; y1 = sh - 1; }
+
+            const cx = x0 / scan, cy = y0 / scan;
+            const cw = (x1 - x0 + 1) / scan, ch = (y1 - y0 + 1) / scan;
+            const k = Math.min(IMG_SIZE * IMG_FILL / cw, IMG_SIZE * IMG_FILL / ch);
+            const dw = cw * k, dh = ch * k;
+
+            const out = document.createElement('canvas');
+            out.width = IMG_SIZE; out.height = IMG_SIZE;
+            const ox = out.getContext('2d');
+            ox.fillStyle = '#ffffff';
+            ox.fillRect(0, 0, IMG_SIZE, IMG_SIZE);
+            ox.imageSmoothingQuality = 'high';
+            ox.drawImage(img, cx, cy, cw, ch, (IMG_SIZE - dw) / 2, (IMG_SIZE - dh) / 2, dw, dh);
+            resolve(out.toDataURL('image/png'));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 읽을 수 없습니다.')); };
+        img.src = url;
+    });
+}
+
+/* 이미지 파일을 저장소 images/ 에 올리고 builds.json 의 이미지 경로를 갱신 */
+async function uploadClassImage(cls, dataUrl) {
+    if (!getToken()) { openTokenModal('이미지를 올리려면 먼저 GitHub 토큰을 연결하세요.'); return false; }
+    setStatus('이미지 올리는 중…');
+    const path = `images/${cls}.png`;
+    try {
+        const existing = await ghGetFile(path);
+        await ghPutFile(path, dataUrl.split(',')[1], existing ? existing.sha : null, `이미지 ${existing ? '변경' : '추가'}: ${cls}`);
+    } catch (e) {
+        setStatus('이미지 저장 실패', true); alert(e.message); return false;
+    }
+    sessionImg[cls] = dataUrl;
+    return commitChange(`이미지 경로: ${cls}`, d => {
+        d.images = d.images || {};
+        d.images[cls] = `${path}?v=${Date.now()}`;
+    });
+}
+
+/* =========================================
+   3. UI 렌더링
+   ========================================= */
+const classScroll  = document.getElementById('classScroll');
+const heroBanner   = document.getElementById('heroBanner');
+const heroImg      = document.getElementById('heroImg');
+const heroClassName= document.getElementById('heroClassName');
+const heroBuildCount=document.getElementById('heroBuildCount');
+const buildSelect  = document.getElementById('buildSelect');
+const resultContainer = document.getElementById('resultContainer');
+const emptyState   = document.getElementById('emptyState');
+const recBtn       = document.getElementById('recBtn');
+const syncStatus   = document.getElementById('syncStatus');
+
+let currentClass = '';
+let currentId = null;      // 선택된 빌드 id
+
+function setStatus(msg, isErr) {
+    syncStatus.textContent = msg;
+    syncStatus.classList.toggle('err', !!isErr);
+    syncStatus.style.display = msg ? 'inline-block' : 'none';
+}
+function findBuild(id) { return appData.find(b => b.id === id); }
+function iconHtml(cls) { return `<div class="no-img">${CLASS_ICON[cls]||'⚔️'}</div>`; }
+
+function initUI() {
+    const classes = [...new Set(appData.map(b => b.클래스))];
+
+    document.getElementById('classList').innerHTML = classes.map(c => `<option value="${esc(c)}">`).join('');
+
+    classScroll.innerHTML = '';
+    classes.forEach(cls => {
+        const card = document.createElement('div');
+        card.className = 'class-card' + (cls === currentClass ? ' active' : '');
+        card.dataset.cls = cls;
+
+        const portrait = document.createElement('div');
+        portrait.className = 'class-portrait';
+
+        const src = getClassImg(cls);
+        if (src) {
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = cls;
+            img.loading = 'lazy';
+            img.onerror = () => { img.remove(); portrait.innerHTML = iconHtml(cls); };
+            portrait.appendChild(img);
+        } else {
+            portrait.innerHTML = iconHtml(cls);
+        }
+
+        const label = document.createElement('span');
+        label.className = 'class-name';
+        label.textContent = cls;
+
+        card.appendChild(portrait);
+        card.appendChild(label);
+        card.addEventListener('click', () => selectClass(cls));
+        classScroll.appendChild(card);
+    });
+
+    if (currentClass) populateBuilds(currentClass);
+}
+
+function updateHero(cls) {
+    heroClassName.textContent = cls;
+    const buildCount = appData.filter(b => b.클래스 === cls).length;
+    heroBuildCount.textContent = `빌드 ${buildCount}개`;
+    const src = getClassImg(cls);
+    if (src) {
+        heroImg.src = src;
+        heroImg.style.display = 'block';
+    } else {
+        heroImg.style.display = 'none';
+    }
+    heroBanner.classList.add('show');
+}
+
+function selectClass(cls) {
+    currentClass = cls;
+    currentId = null;
+
+    classScroll.querySelectorAll('.class-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.cls === cls);
+    });
+
+    updateHero(cls);
+
+    const activeCard = classScroll.querySelector('.class-card.active');
+    if (activeCard) activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+    populateBuilds(cls);
+}
+
+function populateBuilds(cls) {
+    buildSelect.innerHTML = '<option value="">빌드를 선택하세요</option>';
+    buildSelect.disabled = false;
+    buildSelect.style.color = 'var(--text)';
+
+    appData.forEach(b => {
+        if (b.클래스 !== cls) return;
+        const opt = document.createElement('option');
+        opt.value = b.id;
+        opt.textContent = (b.추천 ? '⭐ ' : '') + b.캐릭터;
+        if (b.추천) { opt.style.color = 'var(--gold)'; opt.style.fontWeight = 'bold'; }
+        buildSelect.appendChild(opt);
+    });
+
+    const cur = currentId && findBuild(currentId);
+    if (cur && cur.클래스 === cls) {
+        buildSelect.value = currentId;
+        displayBuild(currentId);
+    } else {
+        currentId = null;
+        resultContainer.classList.remove('show');
+        emptyState.style.display = 'block';
+    }
+}
+
+function boxStyle(c) {
+    const d = dispColor(mainColor(c));
+    return d ? ` style="--c:${d}"` : '';
+}
+
+function displayBuild(id) {
+    const b = findBuild(id);
+    if (!b) return;
+    currentId = id;
+    emptyState.style.display = 'none';
+    resultContainer.classList.add('show');
+    const col = b._c || {};
+    const rec = !!b.추천;
+
+    const resClass = document.getElementById('resClass');
+    resClass.textContent = b.클래스;
+    resClass.className = rec ? 'recommend-class' : '';
+    document.getElementById('resName').textContent = b.캐릭터;
+    document.getElementById('resWeapon').textContent = b.무기;
+    document.getElementById('resTrait').textContent = b.특성;
+    document.getElementById('resGunpowder').innerHTML = paint(b.죄악, col.죄악, '죄악');
+    document.getElementById('resPet').textContent =
+        [b.송진 !== '-' ? b.송진 : '', b.펫 !== '-' ? b.펫 : ''].filter(Boolean).join(' / ') || '-';
+
+    ['버프1', '버프2'].forEach((k, i) => {
+        const el = document.getElementById('resBuff' + (i + 1));
+        el.innerHTML = `<span class="item-label">버프 ${i + 1}</span><strong>${paint(b[k], col[k], k)}</strong>`;
+        const d = dispColor(mainColor(col[k]));
+        if (d) el.style.setProperty('--c', d); else el.style.removeProperty('--c');
+    });
+
+    let skillHtml = '';
+    for (let i = 1; i <= 6; i++) {
+        const k = `스킬${i}`, sk = b[k];
+        if (sk && sk !== '-') skillHtml += `<div class="item-box skill-box"${boxStyle(col[k])}><span class="item-label">${i}</span><strong>${paint(sk, col[k], k)}</strong></div>`;
+    }
+    document.getElementById('resSkills').innerHTML = skillHtml;
+
+    let artiHtml = '';
+    for (let i = 1; i <= 7; i++) {
+        const k = `유물${i}`, ar = b[k];
+        if (ar && ar !== '-') {
+            const d = dispColor(mainColor(col[k]));
+            artiHtml += `<span class="pill${d ? ' tinted' : ''}"${d ? ` style="--c:${d}"` : ''}><span class="pill-no">${i}</span>${paint(ar, col[k], k)}</span>`;
+        }
+    }
+    document.getElementById('resArtifacts').innerHTML = artiHtml;
+
+    resultContainer.classList.toggle('is-recommended', rec);
+    recBtn.classList.toggle('active', rec);
+    buildSelect.style.color = rec ? 'var(--gold)' : 'var(--text)';
+}
+
+function refreshAfterSave(cls, id) {
+    currentClass = cls;
+    currentId = id;
+    initUI();
+    if (appData.some(b => b.클래스 === cls)) {
+        updateHero(cls);
+        classScroll.querySelectorAll('.class-card').forEach(c => c.classList.toggle('active', c.dataset.cls === cls));
+    }
+}
+
+buildSelect.addEventListener('change', function() {
+    if (this.value !== '') displayBuild(this.value);
+    else { currentId = null; resultContainer.classList.remove('show'); emptyState.style.display = 'block'; }
+});
+
+recBtn.addEventListener('click', async function() {
+    const b = currentId && findBuild(currentId);
+    if (!b) return;
+    const id = b.id, on = !b.추천;
+    const ok = await commitChange(`추천 ${on ? '지정' : '해제'}: [${b.클래스}] ${b.캐릭터}`, d => {
+        const t = d.builds.find(x => x.id === id);
+        if (!t) return false;
+        if (on) t.추천 = true; else delete t.추천;
+    });
+    if (ok) refreshAfterSave(b.클래스, id);
+});
+
+/* 히어로 배너: 현재 클래스 이미지 변경 */
+const heroImgFile = document.getElementById('heroImgFile');
+document.getElementById('heroImgBtn').addEventListener('click', () => {
+    if (!currentClass) return;
+    if (!getToken()) { openTokenModal('이미지를 바꾸려면 먼저 GitHub 토큰을 연결하세요.'); return; }
+    heroImgFile.click();
+});
+heroImgFile.addEventListener('change', async function() {
+    const f = this.files[0]; this.value = '';
+    if (!f || !currentClass) return;
+    try {
+        const url = await normalizeClassImage(f);
+        if (await uploadClassImage(currentClass, url)) refreshAfterSave(currentClass, currentId);
+    } catch (e) { alert(e.message); }
+});
+
+/* =========================================
+   4. 토큰 연결
+   ========================================= */
+const tokenOverlay = document.getElementById('tokenOverlay');
+function openTokenModal(msg) {
+    document.getElementById('tokenMsg').textContent = msg || '';
+    document.getElementById('tokenInput').value = '';
+    document.getElementById('tokenState').textContent = getToken() ? '✅ 이 기기는 연결되어 있습니다.' : '🔒 연결 안 됨 (보기만 가능)';
+    document.getElementById('btnTokenRemove').style.display = getToken() ? '' : 'none';
+    tokenOverlay.classList.add('open');
+}
+function closeTokenModal() { tokenOverlay.classList.remove('open'); }
+document.getElementById('btnToken').addEventListener('click', () => openTokenModal(''));
+document.getElementById('btnTokenSave').addEventListener('click', async () => {
+    const t = document.getElementById('tokenInput').value.trim();
+    if (!t) return;
+    const r = await fetch(API, { headers: { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + t } });
+    if (!r.ok) { alert('토큰을 확인할 수 없습니다. 값을 다시 확인하세요.'); return; }
+    const repo = await r.json();
+    if (!repo.permissions || !repo.permissions.push) { alert('이 토큰에는 저장소 쓰기 권한이 없습니다.'); return; }
+    lsSet('ghToken', t);
+    updateTokenBtn();
+    closeTokenModal();
+    alert('연결되었습니다. 이제 이 기기에서 수정·추가가 GitHub에 바로 저장됩니다.');
+});
+document.getElementById('btnTokenRemove').addEventListener('click', () => {
+    lsSet('ghToken', null);
+    updateTokenBtn();
+    closeTokenModal();
+});
+tokenOverlay.addEventListener('click', e => { if (e.target === tokenOverlay) closeTokenModal(); });
+function updateTokenBtn() { document.getElementById('btnToken').classList.toggle('on', !!getToken()); }
+document.getElementById('btnHistory').href = HISTORY_URL;
+
+/* =========================================
+   5. CRUD 모달
+   ========================================= */
+const modalOverlay = document.getElementById('modalOverlay');
+let isEditing = false, editingId = null;
+
+const COLOR_FIELDS = {
+    m_gun: '죄악', m_b1: '버프1', m_b2: '버프2',
+    m_s1: '스킬1', m_s2: '스킬2', m_s3: '스킬3', m_s4: '스킬4', m_s5: '스킬5', m_s6: '스킬6',
+    m_a1: '유물1', m_a2: '유물2', m_a3: '유물3', m_a4: '유물4', m_a5: '유물5', m_a6: '유물6', m_a7: '유물7',
+};
+let modalColors = {};
+const swatchRefs = {};
+const palettePop = document.getElementById('palettePop');
+let paletteTarget = null;
+
+function getPart(field, part) {
+    const c = modalColors[field];
+    if (Array.isArray(c)) return c[part] || null;
+    return part === 0 ? (c || null) : null;
+}
+function setPart(field, part, hex) {
+    const c = modalColors[field];
+    let arr = Array.isArray(c) ? c.slice() : [c || null];
+    arr[part] = hex;
+    if (field === '죄악' || (arr.length > 1 && arr[1])) {
+        while (arr.length < 2) arr.push(null);
+        modalColors[field] = arr;
+    } else {
+        modalColors[field] = arr[0];
+    }
+    refreshSwatches();
+}
+function refreshSwatches() {
+    Object.entries(swatchRefs).forEach(([key, btn]) => {
+        const [field, part] = key.split(':');
+        const hex = getPart(field, +part);
+        btn.classList.toggle('none', !hex);
+        btn.style.setProperty('--sw', hex ? dispColor(hex) : 'transparent');
+    });
+    Object.entries(COLOR_FIELDS).forEach(([id, field]) => {
+        document.getElementById(id).style.color = dispColor(getPart(field, 0)) || '';
+    });
+}
+function buildSwatches() {
+    Object.entries(COLOR_FIELDS).forEach(([id, field]) => {
+        const input = document.getElementById(id);
+        const wrap = document.createElement('div');
+        wrap.className = 'cin';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        const parts = field === '죄악' ? [0, 1] : [0];
+        parts.forEach(part => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'swatch none';
+            btn.title = field === '죄악' ? (part === 0 ? '앞 색' : '뒤 색') : '글자 색';
+            btn.addEventListener('click', e => { e.stopPropagation(); openPalette(btn, field, part); });
+            wrap.appendChild(btn);
+            swatchRefs[`${field}:${part}`] = btn;
+        });
+    });
+    palettePop.innerHTML = PALETTE.map((p, i) =>
+        `<button type="button" data-i="${i}" title="${p.name}" class="${p.hex ? '' : 'none'}" style="--sw:${p.hex ? dispColor(p.hex) : 'transparent'}"></button>`).join('');
+    palettePop.addEventListener('click', e => {
+        const btn = e.target.closest('button');
+        if (!btn || !paletteTarget) return;
+        setPart(paletteTarget.field, paletteTarget.part, PALETTE[+btn.dataset.i].hex);
+        closePalette();
+    });
+    document.addEventListener('click', e => { if (!palettePop.contains(e.target)) closePalette(); });
+}
+function openPalette(anchor, field, part) {
+    paletteTarget = { field, part };
+    const cur = getPart(field, part);
+    palettePop.querySelectorAll('button').forEach(b => b.classList.toggle('sel', PALETTE[+b.dataset.i].hex === cur));
+    palettePop.classList.add('open');
+    const r = anchor.getBoundingClientRect();
+    const pw = palettePop.offsetWidth, ph = palettePop.offsetHeight;
+    let left = Math.min(r.right - pw, window.innerWidth - pw - 8);
+    let top = r.bottom + 6;
+    if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+    palettePop.style.left = Math.max(8, left) + 'px';
+    palettePop.style.top = Math.max(8, top) + 'px';
+}
+function closePalette() { palettePop.classList.remove('open'); paletteTarget = null; }
+
+/* 이미지 없는 클래스면 업로드 칸 표시 */
+const imgUploadWrap = document.getElementById('imgUploadWrap');
+const imgPreview = document.getElementById('imgPreview');
+let pendingImg = null;
+
+function updateImgUpload() {
+    const cls = document.getElementById('m_cls').value.trim();
+    const need = !!cls && !getClassImg(cls);
+    imgUploadWrap.classList.toggle('show', need || !!pendingImg);
+    const isNew = cls && !appData.some(b => b.클래스 === cls);
+    document.getElementById('imgUploadTitle').textContent =
+        (isNew ? '새 클래스' : '이미지 없는 클래스') + (cls ? ` · ${cls}` : '') + ' 이미지';
+    imgPreview.innerHTML = pendingImg ? `<img src="${pendingImg}" alt="">` : (CLASS_ICON[cls] || '🖼️');
+}
+document.getElementById('m_cls').addEventListener('input', updateImgUpload);
+document.getElementById('m_img').addEventListener('change', async function() {
+    const f = this.files[0]; this.value = '';
+    if (!f) return;
+    try { pendingImg = await normalizeClassImage(f); updateImgUpload(); }
+    catch (e) { alert(e.message); }
+});
+
+function openModal(editMode = false) {
+    if (!getToken()) { openTokenModal('빌드를 추가·수정하려면 먼저 이 기기에 GitHub 토큰을 연결하세요.'); return; }
+    isEditing = editMode;
+    pendingImg = null;
+    document.getElementById('modalTitle').textContent = editMode ? '빌드 수정' : '새 빌드 추가';
+    const b = editMode && currentId && findBuild(currentId);
+    if (b) {
+        editingId = b.id;
+        document.getElementById('m_cls').value = b.클래스;
+        document.getElementById('m_char').value = b.캐릭터;
+        document.getElementById('m_wpn').value = b.무기;
+        document.getElementById('m_trt').value = b.특성;
+        document.getElementById('m_gun').value = b.죄악;
+        document.getElementById('m_song').value = b.송진;
+        document.getElementById('m_pet').value = b.펫;
+        document.getElementById('m_b1').value = b.버프1;
+        document.getElementById('m_b2').value = b.버프2;
+        for (let i = 1; i <= 6; i++) document.getElementById(`m_s${i}`).value = b[`스킬${i}`];
+        for (let i = 1; i <= 7; i++) document.getElementById(`m_a${i}`).value = b[`유물${i}`];
+        modalColors = JSON.parse(JSON.stringify(b._c || {}));
+    } else {
+        isEditing = false;
+        editingId = null;
+        document.getElementById('m_cls').value = currentClass || '';
+        document.getElementById('m_char').value = '';
+        ['wpn','trt','gun','song','pet','b1','b2'].forEach(id => document.getElementById(`m_${id}`).value = '-');
+        for (let i = 1; i <= 6; i++) document.getElementById(`m_s${i}`).value = '-';
+        for (let i = 1; i <= 7; i++) document.getElementById(`m_a${i}`).value = '-';
+        modalColors = {};
+    }
+    refreshSwatches();
+    updateImgUpload();
+    modalOverlay.classList.add('open');
+}
+function closeModal() { modalOverlay.classList.remove('open'); closePalette(); }
+
+document.getElementById('btnSaveModal').addEventListener('click', async function() {
+    const cls  = document.getElementById('m_cls').value.trim();
+    const char = document.getElementById('m_char').value.trim();
+    if (!cls || !char) { alert('클래스와 빌드명은 필수입니다.'); return; }
+
+    const nd = { "클래스":cls, "캐릭터":char,
+        "무기": document.getElementById('m_wpn').value.trim()||'-',
+        "특성": document.getElementById('m_trt').value.trim()||'-',
+        "죄악": document.getElementById('m_gun').value.trim()||'-',
+        "버프1":document.getElementById('m_b1').value.trim()||'-',
+        "버프2":document.getElementById('m_b2').value.trim()||'-',
+    };
+    for (let i = 1; i <= 6; i++) nd[`스킬${i}`] = document.getElementById(`m_s${i}`).value.trim()||'-';
+    for (let i = 1; i <= 7; i++) nd[`유물${i}`] = document.getElementById(`m_a${i}`).value.trim()||'-';
+    nd["송진"] = document.getElementById('m_song').value.trim()||'-';
+    nd["펫"]   = document.getElementById('m_pet').value.trim()||'-';
+
+    const colors = {};
+    Object.values(COLOR_FIELDS).forEach(f => {
+        const c = modalColors[f];
+        if (nd[f] === '-' || !c) return;
+        if (Array.isArray(c)) { if (c.some(Boolean)) colors[f] = c.map(x => x || '#000000'); }
+        else colors[f] = c;
+    });
+    nd._c = colors;
+
+    const btn = this;
+    btn.disabled = true;
+    try {
+        if (pendingImg && !(await uploadClassImage(cls, pendingImg))) return;
+        pendingImg = null;
+
+        let id;
+        let ok;
+        if (isEditing && editingId) {
+            id = editingId;
+            ok = await commitChange(`빌드 수정: [${cls}] ${char}`, d => {
+                const i = d.builds.findIndex(x => x.id === id);
+                if (i < 0) { alert('그 사이 다른 기기에서 삭제된 빌드입니다.'); return false; }
+                const keep = d.builds[i].추천 ? { 추천: true } : {};
+                d.builds[i] = Object.assign({ id }, nd, keep);
+            });
+        } else {
+            id = newId();
+            ok = await commitChange(`빌드 추가: [${cls}] ${char}`, d => {
+                // 같은 클래스 빌드들 바로 뒤에 넣어 순서 유지
+                let at = -1;
+                d.builds.forEach((x, i) => { if (x.클래스 === cls) at = i; });
+                const item = Object.assign({ id }, nd);
+                if (at < 0) d.builds.push(item); else d.builds.splice(at + 1, 0, item);
+            });
+        }
+        if (!ok) return;
+        closeModal();
+        refreshAfterSave(cls, id);
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+document.getElementById('btnAddBuild').addEventListener('click', () => openModal(false));
+document.getElementById('btnEdit').addEventListener('click', () => openModal(true));
+document.getElementById('btnDelete').addEventListener('click', async () => {
+    const b = currentId && findBuild(currentId);
+    if (!b) return;
+    if (!getToken()) { openTokenModal('삭제하려면 먼저 GitHub 토큰을 연결하세요.'); return; }
+    if (!confirm(`[${b.클래스}] ${b.캐릭터} 빌드를 삭제하시겠습니까?`)) return;
+    const id = b.id, cls = b.클래스;
+    const ok = await commitChange(`빌드 삭제: [${cls}] ${b.캐릭터}`, d => {
+        const i = d.builds.findIndex(x => x.id === id);
+        if (i < 0) return false;
+        d.builds.splice(i, 1);
+    });
+    if (ok) {
+        currentId = null;
+        resultContainer.classList.remove('show');
+        emptyState.style.display = 'block';
+        refreshAfterSave(cls, null);
+    }
+});
+
+modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+
+/* 시작 */
+buildSwatches();
+updateTokenBtn();
+loadData();
+</script>
+</body>
+</html>
