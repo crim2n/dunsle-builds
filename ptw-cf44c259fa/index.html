@@ -186,7 +186,7 @@ async function pool(items, fn, onStep) {
 // 조회 날짜 D 는 D·D+1 작업을 함께 돌려주므로 받은 뒤 작업일로 다시 거른다
 async function listPermits(start, end) {
   const out = [];
-  for (let page = 0; page < 50; page++) {
+  for (let page = 0; page < 200; page++) {
     const p = new URLSearchParams({
       workCategory: "", workKind: "", workKind2: "",
       startDate: `${start}T00:00:00.000Z`, endDate: `${end}T23:59:59.000Z`,
@@ -198,8 +198,10 @@ async function listPermits(start, end) {
       page: String(page), size: "100",
     });
     const rows = (await getJson(`${base()}/synportal/PermitApi/SearchPermit?${p}`)) || [];
+    // 서버가 한 페이지에 100건보다 적게 줄 때가 있어(예: 99건) 빈 페이지가 나오거나 총건수를 채울 때까지 계속
+    if (!rows.length) break;
     out.push(...rows);
-    if (rows.length < 100 || out.length >= (rows[0]?.totalCount ?? 0)) break;
+    if (out.length >= (rows[0]?.totalCount ?? 0)) break;
   }
   const seen = new Set();
   return out.filter((r) => {
