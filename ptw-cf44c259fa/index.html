@@ -81,10 +81,11 @@
   </div>
 
   <div class="card" id="resultCard" style="display:none">
+    <div class="sum" id="teams" style="align-items:center;margin-bottom:8px"></div>
     <div class="sum" id="sum"></div>
     <div style="overflow:auto;margin-top:12px">
       <table id="tbl">
-        <thead><tr><th>판정</th><th>작업일</th><th>작업번호</th><th>종류</th><th>작업제목</th><th>LOTO 확인</th><th>꼬리표 보관</th><th>첨부</th><th>사유</th><th></th></tr></thead>
+        <thead><tr><th>판정</th><th>주간조</th><th>작업일</th><th>작업번호</th><th>종류</th><th>작업제목</th><th>LOTO 확인</th><th>꼬리표 보관</th><th>첨부</th><th>사유</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -98,6 +99,7 @@
     · 작업 시작·완료 시각은 예정시간 안 (연장 승인이 있으면 완료는 예정 종료 +1시간까지)<br>
     · 허가서 작업인원 총 n명과 서명 명단 인원수가 같아야 함<br>
     · 작업책임자, 그리고 화재감시자 지정이 확인이면 화재감시자 이름이 작업인원·교육현황 명단에 있어야 함<br>
+    · 주간조: 4조 2교대(주간·주간·휴무·휴무·야간·야간·휴무·휴무) 기준으로 작업일의 주간 근무조를 계산(2026-10-02 = B조 주간 둘째날). 조를 누르면 그 조 시정조치 대상만 보임<br>
     · 위험성평가 ↔ 허가서: 위험성평가가 지정한 보호구가 허가서에 없으면 <b>위반</b>, 허가서 작업안전조치(전원 차단·격리·고소)는 확인인데 위험성평가에 근거가 없으면 <b>주의</b>. 위험성평가에 있어도 작업안전조치에서 체크하지 않은 것은 현장 판단으로 보고 문제 삼지 않음
   </div>
 </main>
@@ -470,27 +472,41 @@ function judge(d) {
   return { R, need };
 }
 
+// ---------- 근무조 (4조 2교대: 주간·주간·휴무·휴무·야간·야간·휴무·휴무, 8일 주기) ----------
+// 기준 2026-10-02: A 야간 둘째날(5) · B 주간 둘째날(1) · C 주간 뒤 휴무 둘째날(3) · D 야간 뒤 휴무 둘째날(7)
+const SHIFT_BASE = { date: "2026-10-02", pos: { A: 5, B: 1, C: 3, D: 7 } };
+function dayTeam(day) {
+  const diff = Math.round((Date.parse(day + "T00:00:00Z") - Date.parse(SHIFT_BASE.date + "T00:00:00Z")) / 86400e3);
+  for (const [t, b] of Object.entries(SHIFT_BASE.pos)) if ((((b + diff) % 8) + 8) % 8 <= 1) return t;
+  return "";
+}
+
 // ---------- 6. 화면 ----------
-let DATA = [], VIEW = "all";
+let DATA = [], VIEW = "all", TEAM = "all";
 const level = (R) => (R.some((r) => r.lv === "bad") ? "bad" : R.some((r) => r.lv === "warn") ? "warn" : "ok");
 const LV = { bad: ["위반", "b-bad"], warn: ["주의", "b-warn"], ok: ["정상", "b-ok"] };
 
 function render() {
   for (const d of DATA) Object.assign(d, judge(d), {});
-  for (const d of DATA) d.lv = level(d.R);
-  const c = { all: DATA.length, bad: 0, warn: 0, ok: 0 };
-  for (const d of DATA) c[d.lv]++;
+  for (const d of DATA) { d.lv = level(d.R); d.team = dayTeam(String(d.p.date).slice(0, 10)); }
+  const inTeam = DATA.filter((d) => TEAM === "all" || d.team === TEAM);
+  const c = { all: inTeam.length, bad: 0, warn: 0, ok: 0 };
+  for (const d of inTeam) c[d.lv]++;
+  const tc = (t) => DATA.filter((d) => d.team === t && d.lv === "bad").length;
+  $("teams").innerHTML = `<span class="small muted">주간조(시정조치)</span>` + ["all", "A", "B", "C", "D"].map((t) => `<div class="s all ${TEAM === t ? "on" : ""}" data-t="${t}">${t === "all" ? "전체 조" : t + "조"} <span class="small" style="color:var(--bad)">위반 ${t === "all" ? DATA.filter((d) => d.lv === "bad").length : tc(t)}</span></div>`).join("");
+  $("teams").querySelectorAll(".s").forEach((el) => el.onclick = () => { TEAM = el.dataset.t; render(); });
   $("sum").innerHTML = [["all", "전체", "all"], ["bad", "위반", "bad"], ["warn", "주의", "warn"], ["ok", "정상", "ok"]]
     .map(([k, t, cls]) => `<div class="s ${cls} ${VIEW === k ? "on" : ""}" data-k="${k}">${t} ${c[k]}</div>`).join("");
   $("sum").querySelectorAll(".s").forEach((el) => el.onclick = () => { VIEW = el.dataset.k; render(); });
   const tb = $("tbl").querySelector("tbody");
   tb.innerHTML = "";
-  DATA.filter((d) => VIEW === "all" || d.lv === VIEW).forEach((d) => {
+  inTeam.filter((d) => VIEW === "all" || d.lv === VIEW).forEach((d) => {
     const p = d.p;
     const lotoTxt = d.error ? "-" : [d.loto.ctrl?.ok && "제어전원", d.loto.main?.ok && "주전원", d.loto.iso?.ok && "시설격리"].filter(Boolean).join(", ") || "<span class='muted'>없음</span>";
     const attTxt = d.attachments ? `${d.attachments.length}${d.need ? " / " + d.need : ""}` : "<span class='muted'>-</span>";
     const tr = document.createElement("tr");
     tr.innerHTML = `<td><span class="badge ${LV[d.lv][1]}">${LV[d.lv][0]}</span></td>
+      <td><b>${d.team}</b></td>
       <td class="small">${esc(String(p.date).slice(0, 10))}${WX[String(p.date).slice(0, 10)]?.hot ? " <span class='badge b-warn'>하절기</span>" : ""}</td>
       <td><a href="${base()}/synprod/case/${p.transId}" target="_blank" rel="noreferrer">${p.transId}</a></td>
       <td class="small">${esc(p.workKind)}<br><span class="muted">${esc(p.status)}</span></td>
@@ -502,7 +518,7 @@ function render() {
       <td><span class="link small">상세</span></td>`;
     const det = document.createElement("tr");
     det.className = "detail"; det.style.display = "none";
-    det.innerHTML = `<td colspan="10">${detailHtml(d)}</td>`;
+    det.innerHTML = `<td colspan="11">${detailHtml(d)}</td>`;
     tr.querySelector(".link").onclick = () => { det.style.display = det.style.display === "none" ? "" : "none"; };
     tb.append(tr, det);
   });
@@ -580,10 +596,11 @@ $("run").onclick = async () => {
 };
 $("rejudge").onclick = () => render();
 $("csv").onclick = () => {
-  const rows = [["판정", "작업일", "작업번호", "종류", "작업제목", "LOTO확인", "꼬리표보관", "첨부수", "필요수", "하절기", "사유", "링크"]];
+  const rows = [["판정", "주간조", "작업일", "작업번호", "종류", "작업제목", "LOTO확인", "꼬리표보관", "첨부수", "필요수", "하절기", "사유", "링크"]];
   for (const d of DATA) {
     const day = String(d.p.date).slice(0, 10);
-    rows.push([LV[d.lv][0], day, d.p.transId, d.p.workKind, d.p.title,
+    if (TEAM !== "all" && d.team !== TEAM) continue;
+    rows.push([LV[d.lv][0], d.team, day, d.p.transId, d.p.workKind, d.p.title,
       d.error ? "" : [d.loto.ctrl?.ok && "제어전원", d.loto.main?.ok && "주전원", d.loto.iso?.ok && "시설격리"].filter(Boolean).join("+"),
       d.tagKeep ?? "칸없음", d.attachments?.length ?? "", d.need ?? "", WX[day]?.hot ? "Y" : "",
       d.R.map((r) => `[${r.lv === "bad" ? "위반" : r.lv === "warn" ? "주의" : "참고"}] ${r.msg}`).join(" / "),
