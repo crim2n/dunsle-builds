@@ -312,7 +312,16 @@ async function collect(p) {
   const tagRow = heatRows.find((x) => x.refer_description === "꼬리표 보관 여부");
   const tagKeep = tagRow ? optVal(tagRow) : null;          // null = 이 허가서에는 꼬리표 칸 없음
   const hv = (name) => { const r = heatRows.find((x) => (x.refer_description || "").trim() === name); return r ? optVal(r) : ""; };
-  const times = { planStart: hv("작업시작 예정시간(직접 입력)"), planEnd: hv("작업종료 예정시간(직접 입력)"), start: hv("작업 시작 시간"), done: hv("작업 완료 시간") };
+  // 작업 예정 시간: 허가서 화면에 표시되는 값(항목 397 "작업 예정 시간", 설명에 "08:00 ~ 17:00")을 우선
+  //  → 없으면 750/751, 그다음 '직접 입력'(10/11). 직접 입력 칸은 화면 값과 다를 수 있음(2940515: 08:30 vs 화면 08:00)
+  const planRow = heatRows.find((x) => x.reference === 397 || (x.refer_description || "").trim() === "작업 예정 시간");
+  const planM = /(\d{1,2}:\d{2})\s*~\s*(\d{1,2}:\d{2})/.exec(String(planRow?.description || planRow?.value || ""));
+  const byRef = (ref) => { const r = heatRows.find((x) => x.reference === ref); return r ? optVal(r) : ""; };
+  const times = {
+    planStart: planM?.[1] || byRef(750) || hv("작업시작 예정시간(직접 입력)"),
+    planEnd: planM?.[2] || byRef(751) || hv("작업종료 예정시간(직접 입력)"),
+    start: hv("작업 시작 시간"), done: hv("작업 완료 시간"),
+  };
   const extended = (sigs || []).some((g) => /연장\s*승인/.test(g.description || "") && g.date && g.name);
   const people = { leader: hv("작업책임자"), fireWatch: hv("화재감시자") };
   // 작업인원 및 교육현황 = 허가서에 서명한 인원 (gsSignApi/involvedPerson · firstName)
